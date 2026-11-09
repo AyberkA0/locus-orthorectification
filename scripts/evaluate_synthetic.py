@@ -1,8 +1,7 @@
-"""Evaluate locus-ortho on synthetic scenes with known tilt, azimuth, depth and normals.
+"""Evaluate locus-ortho on synthetic scenes with known tilt, azimuth, depth, normals and segments.
 
     python scripts/synthetic.py --out examples/synthetic --scenes 8
-    python scripts/evaluate_synthetic.py --scenes examples/synthetic --bin target/release/locus-ortho \
-        --model models/depth_anything_v2_small.onnx
+    python scripts/evaluate_synthetic.py --scenes examples/synthetic
 """
 import argparse
 import json
@@ -15,10 +14,9 @@ from PIL import Image
 from skimage.metrics import structural_similarity
 
 CONFIGS = {
-    'normals (GT) + depth (GT)': ['--normals', '{n}', '--depth', '{d}'],
-    'normals (GT) + depth (model)': ['--normals', '{n}'],
-    'depth only (GT)': ['--depth', '{d}'],
-    'depth only (model)': [],
+    'true depth, true segments': ['--depth', '{d}', '--segments', '{g}'],
+    'true depth, no segments': ['--depth', '{d}'],
+    'Depth Anything V2 Small, true segments': ['--segments', '{g}'],
 }
 
 
@@ -46,7 +44,7 @@ def main():
         img, nad = base + '_oblique.png', gray(base + '_nadir.png')
         ssim0 = structural_similarity(gray(img), nad, data_range=255)
         for cfg, extra in CONFIGS.items():
-            extra = [e.format(n=base + '_normals_gt.png', d=base + '_depth_gt.png') for e in extra]
+            extra = ['--normals', base + '_normals_gt.png'] + [e.format(d=base + '_depth_gt.png', g=base + '_segments_gt.png') for e in extra]
             r = {'scene': name, 'ssim_input': ssim0}
             for level in (1, 2):
                 with tempfile.TemporaryDirectory() as tmp:
@@ -54,10 +52,11 @@ def main():
                     r[f'ssim_l{level}'] = structural_similarity(gray(out), nad, data_range=255)
             r['tilt_err'] = abs(est['tilt_deg'] - tr['tilt_deg'])
             r['azimuth_err'] = abs((est['azimuth_deg'] - tr['image_azimuth_deg'] + 180) % 360 - 180)
-            r['hole_frac'] = est['hole_frac']
+            r['tilt_source'] = est['source']
+            r['hole_frac'] = (est.get('relief') or {}).get('hole_frac', 0.0)
             rows[cfg].append(r)
     summary = {}
-    print('| Tilt / depth source | Tilt error (°) | Azimuth error (°) | SSIM input | SSIM level 1 | SSIM level 2 |')
+    print('| Depth / segments | Tilt error (°) | Azimuth error (°) | SSIM input | SSIM level 1 | SSIM level 2 |')
     print('| --- | --- | --- | --- | --- | --- |')
     for cfg, rs in rows.items():
         m = {k: float(np.mean([r[k] for r in rs])) for k in ['tilt_err', 'azimuth_err', 'ssim_input', 'ssim_l1', 'ssim_l2', 'hole_frac']}
