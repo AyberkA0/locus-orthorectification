@@ -1,5 +1,8 @@
 # locus-orthorectification
 
+> [!NOTE]
+> This is an experimental research tool. I make no claims about how well it works, or whether it works at all, on any particular imagery. Results depend on the quality of the normal, depth and segment inputs, and have only been checked on the synthetic scenes and the small set of real tiles described below.
+
 `locus-ortho` is a command-line tool that turns an oblique aerial image into a nadir (top-down) view, using only the image itself. It estimates the viewing tilt per image, corrects the ground plane, and moves roofs and tree crowns back over their footprints.
 
 It was written for cross-view geo-localization, where models trained on nadir satellite tiles are tested on cities whose reference imagery is oblique.
